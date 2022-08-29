@@ -6,7 +6,7 @@ Most autonomous driving cars are equipped with Lidar and Radar. However the outp
 As the results below, the EKF functions fuses linear Lidar with non-linear Radar data.
 
 <p align="center">
-  <img src="ekf_sensorfusion.png"  />
+  <img src="ekf_sensorfusion.png" width="66%" />
 </p>
 
 ## Platform
