@@ -7,3 +7,11 @@ As the results below, the EKF functions fuses linear Lidar with non-linear Radar
   <img src="ekf_sensorfusion.png"  />
 </p>
 
+## Platform
+* MATLAB
+
+## Implementation
+ 
+Navigate to the ```Sensor-Level-Fusion``` folder
+
+Open ```main.m``` file and ```RUN``` it in MATLAB workspace.
