@@ -1,26 +1,46 @@
-clear;
-clf;
+clc;
+clear all;
+
+%% Params
 dt = 0.1;
 Data = csvread('Radar_Lidar_Data1.csv',1,1);
-% Data = csvread('Radar_Lidar_Data2.csv',1,1);
-Radar_Measurement = [];
-Lidar_Measurement = [];
+Zradar = [];
+Zlidar = [];
 EKF_Path = [];
+N = 150;
 
+
+%% State Transition Matrix
+% Jacobian of A 
 F = [[1, 0, dt, 0];
      [0, 1, 0, dt];
      [0, 0, 1, 0];
      [0, 0, 0, 1]];
- 
-u = 0;
+
+% Control input matrix
 B = [(dt^2)/2 (dt^2)/2 dt dt]';
 
+u = 0;
+
+% Process noise
 P = [[1, 0, 0, 0];
      [0, 1, 0, 0];
      [0, 0, 1000, 0];
      [0, 0, 0, 1000]];
 
+% Covariance
+Q = [(dt^2)/4 0 (dt^3)/2 0;
+     0 (dt^2)/4 0 (dt^3)/2;
+     (dt^3/2) 0 (dt^2) 0;
+     0 (dt^3)/2 0 (dt^2)];
 
+% Measurement model
+H = [[1, 0, 0, 0];
+     [0, 1, 0, 0]];
+
+I = eye(4);
+
+% Uncertainty in radar and lidar
 R_l = [[0.0025, 0];
        [0, 0.0025]];
   
@@ -28,25 +48,14 @@ R_r = [[0.09, 0, 0];
       [0, 0.005, 0];
       [0, 0, 0.09]];
  
-
-Q = [(dt^2)/4 0 (dt^3)/2 0;
-     0 (dt^2)/4 0 (dt^3)/2;
-     (dt^3/2) 0 (dt^2) 0;
-     0 (dt^3)/2 0 (dt^2)];
-
-
-H = [[1, 0, 0, 0];
-     [0, 1, 0, 0]];
-
-I = eye(4);
-
 if (Data(1,1) == 1)
     x = [Data(1,2); Data(1,3); 0; 0];
 else
     x = [Data(1,2); Data(1,3); Data(1,4); 0];
 end
 
-for n = 1:length(Data)
+
+for n = 1:N
     
     if (Data(n,1) == 2)
         
@@ -80,7 +89,7 @@ for n = 1:length(Data)
         x = Z_Car + (K * y);
         P = (I - (K * H_Jac)) * P;
         EKF_Path = [EKF_Path;[x(1),x(2)]];
-        Radar_Measurement = [Radar_Measurement; Data(n,2:4)];
+        Zradar = [Zradar; Data(n,2:4)];
     
     else
         
@@ -96,22 +105,44 @@ for n = 1:length(Data)
         x = x + (K * y);
         P = (I - (K * H)) * P;
         EKF_Path = [EKF_Path;[x(1),x(2)]];
-        Lidar_Measurement = [Lidar_Measurement; Data(n,2:3)];
+        Zlidar = [Zlidar; Data(n,2:3)];
     end
     
 end
 
-for i = 1:length(Radar_Measurement)
-    Radar_Measurement_Cart(i,:) = [[Radar_Measurement(i,1),0];[0, Radar_Measurement(i,1)]]*[cos(Radar_Measurement(i,2));sin(Radar_Measurement(i,2))];
+for i = 1:length(Zradar)
+    Radar_Measurement_Cart(i,:) = [[Zradar(i,1),0];[0, Zradar(i,1)]]*[cos(Zradar(i,2));sin(Zradar(i,2))];
 end
 
+
+%% Plot
 hold on;
+groundTruthX = Data(:,6);
+groundTruthY = Data(:,7);
+groundTruthX = groundTruthX(1:N);
+groundTruthY = groundTruthY(1:N);
 
-plot(Data(:,6),Data(:,7),'linewidth', 2);
-scatter(EKF_Path(:,1),EKF_Path(:,2),25,'filled','r');
-scatter(Lidar_Measurement(:,1),Lidar_Measurement(:,2),5,'filled','blue');
-scatter(Radar_Measurement_Cart(:,1),Radar_Measurement_Cart(:,2),5,'filled','g');
+fusedPathX = EKF_Path(:,1);
+fusedPathY = EKF_Path(:,2);
 
-legend('Grundtruth','EKF Path result','Lidar Measurement','Radar Measurement','Location','northwest');
+
+plot(groundTruthX(1:N),groundTruthY(1:N),'LineWidth', 1.5, 'LineStyle','-', 'Color', 'r');
+plot(fusedPathX, fusedPathY, 'LineWidth', 2, 'LineStyle' ,'-', 'Color', 'b' );
+scatter(Zlidar(:,1),Zlidar(:,2), '*');
+scatter(Radar_Measurement_Cart(:,1),Radar_Measurement_Cart(:,2), 'o', 'g');
+
+legend('Ground','EKF','Lidar','Radar');
+grid on;
+grid minor;
 axis square;
+title('Sensor Fusion using EKF');
+xlabel('Path [m]');
 hold off;
+
+
+%% Error Calculation
+
+true = sqrt(groundTruthX.^2 + groundTruthY.^2); 
+predicted = sqrt(fusedPathX.^2 + fusedPathY.^2);
+RMSE = sqrt(mean(((true - predicted).^2))); 
+
